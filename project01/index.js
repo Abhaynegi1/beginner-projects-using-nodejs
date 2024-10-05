@@ -1,8 +1,12 @@
 const express = require("express") ;
 const users = require("./MOCK_DATA.json");
-
+const fs = require("fs");
 const app = express() ;
 const PORT = 8000 ;
+
+//Midleware - plugin
+app.use(express.urlencoded({extended : false}));
+
 //routes
 app.get("/" , (req , res) =>{
     return res.send("This is the homepage");
@@ -37,5 +41,13 @@ app
         res.json({status : "Pending"});
     });
 
+app.post("/api/user" , (req ,res) => {  //entrying data using postman
+    const body = req.body ;
+    users.push({id :users.length + 1 , ...body })  //pushing the id seprately as id cant be fetched from frontend as it is dynamic 
+    fs.writeFile("./MOCK_DATA.json" , JSON.stringify(users) , (err , date) => {
+        res.json({status : "Success" , id : users.length});
+    }) ;
+    
+})
 
 app.listen(PORT , () => console.log(`Server Started on port ${PORT}`));
