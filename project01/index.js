@@ -4,9 +4,19 @@ const fs = require("fs");
 const app = express();
 const PORT = 8000;
 
-// Middleware - plugin
-app.use(express.urlencoded({ extended: false }));
-app.use(express.json()); // This is needed to parse JSON data in POST/PUT requests
+
+app.use(express.urlencoded({ extended: false })); // Middleware Plugin
+
+app.use(express.json()); // To parse JSON data from the body
+
+app.use((req, res, next) => {  //Made a middleware the req and res will remain same for all the middle ware and main function so it can be used in "api/users" in future. and next(); is important to call otherwise the middleware will keep the request to it self  
+    console.log("Hello from middleware");
+    const logEntry = `\n${Date.now()} : ${req.ip} : ${req.method} : ${req.url}`;  //as logEntry is made in this middleware it can be used troughtout all the middleware it call next(); and the main function
+
+    fs.appendFile("log.txt", logEntry, (err , date) => {});
+
+    next(); //to call the next middleware in this case Routes as there are no more middleware
+});
 
 // Routes
 app.get("/", (req, res) => {
@@ -94,4 +104,4 @@ app.post("/api/user", (req, res) => {
 });
 
 // Start the server
-app.listen(PORT, () => console.log(`Server Started on port ${PORT}`));
+app.listen(PORT, () => console.log(`Server started on port ${PORT}`));
