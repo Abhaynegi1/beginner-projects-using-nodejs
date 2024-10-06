@@ -1,53 +1,97 @@
-const express = require("express") ;
+const express = require("express");
 const users = require("./MOCK_DATA.json");
 const fs = require("fs");
-const app = express() ;
-const PORT = 8000 ;
+const app = express();
+const PORT = 8000;
 
-//Midleware - plugin
-app.use(express.urlencoded({extended : false}));
+// Middleware - plugin
+app.use(express.urlencoded({ extended: false }));
+app.use(express.json()); // This is needed to parse JSON data in POST/PUT requests
 
-//routes
-app.get("/" , (req , res) =>{
+// Routes
+app.get("/", (req, res) => {
     return res.send("This is the homepage");
-})
+});
 
-app.get("/users" , (req ,res) =>{
+app.get("/users", (req, res) => {
     const html = `
     <ul>
      ${users.map((user) => `<li> ${user.first_name} </li>`).join(" ")}
     </ul>
     `;
-    return res.send(html) ;
-})
+    return res.send(html);
+});
 
-app.get("/api/users" , (req ,res) =>{
-    return res.json(users) ; 
-})
+app.get("/api/users", (req, res) => {
+    return res.json(users);
+});
 
 app
-    .route("/api/users/:id") // :id is a dynamic path parameter 
-    .get((req , res) => {  
-    const id = Number(req.params.id) ;
-    const user = users.find((user) => user.id === parseInt(id)) ;
-    return res.json(user) ;
+    .route("/api/users/:id") // :id is a dynamic path parameter
+    .get((req, res) => {
+        const id = Number(req.params.id);
+        const user = users.find((user) => user.id === id);
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+        return res.json(user);
     })
-    .put((req , res) => {
-        //Edit user with id
-        res.json({status : "Pending"});
+    .put((req, res) => {
+        const id = Number(req.params.id);
+        const userIndex = users.findIndex((user) => user.id === id);
+
+        if (userIndex === -1) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        // Update user data
+        const updatedUser = { ...users[userIndex], ...req.body };
+        users[userIndex] = updatedUser;
+
+        // Write the updated data back to the file
+        fs.writeFile("./MOCK_DATA.json", JSON.stringify(users, null, 2), (err) => {
+            if (err) {
+                return res.status(500).json({ message: "Error updating user" });
+            }
+            return res.json({ message: "User updated successfully", updatedUser });
+        });
     })
-    .delete((req , res) => {
-        //Delete user with id
-        res.json({status : "Pending"});
+    .delete((req, res) => {
+        const id = Number(req.params.id);
+        const userIndex = users.findIndex((user) => user.id === id);
+
+        if (userIndex === -1) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        // Remove the user from the array
+        users.splice(userIndex, 1);
+
+        // Write the updated data back to the file
+        fs.writeFile("./MOCK_DATA.json", JSON.stringify(users, null, 2), (err) => {
+            if (err) {
+                return res.status(500).json({ message: "Error deleting user" });
+            }
+            return res.json({ message: "User deleted successfully" });
+        });
     });
 
-app.post("/api/user" , (req ,res) => {  //entrying data using postman
-    const body = req.body ;
-    users.push({id :users.length + 1 , ...body })  //pushing the id seprately as id cant be fetched from frontend as it is dynamic 
-    fs.writeFile("./MOCK_DATA.json" , JSON.stringify(users) , (err , date) => {
-        res.json({status : "Success" , id : users.length});
-    }) ;
-    
-})
+// Post route to add a new user
+app.post("/api/user", (req, res) => {
+    const body = req.body;
+    const newUser = { id: users.length + 1, ...body };
 
-app.listen(PORT , () => console.log(`Server Started on port ${PORT}`));
+    // Push the new user to the users array
+    users.push(newUser);
+
+    // Write the updated data back to the file
+    fs.writeFile("./MOCK_DATA.json", JSON.stringify(users, null, 2), (err) => {
+        if (err) {
+            return res.status(500).json({ message: "Error saving user" });
+        }
+        return res.json({ status: "Success", id: users.length });
+    });
+});
+
+// Start the server
+app.listen(PORT, () => console.log(`Server Started on port ${PORT}`));
