@@ -33,6 +33,8 @@ app.get("/users", (req, res) => {
 });
 
 app.get("/api/users", (req, res) => {
+    //http headers are the key-value pairs that provide additional information about the request or response
+    res.setHeader("X-myName" , "Abhay"); // making a custom header 
     return res.json(users);
 });
 
