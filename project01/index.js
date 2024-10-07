@@ -1,8 +1,44 @@
 const express = require("express");
-const users = require("./MOCK_DATA.json");
+
+// const users = require("./MOCK_DATA.json");  now we will be using mongoDB for this 
+
 const fs = require("fs");
+const mongoose = require("mongoose");  //library to connect to data base
 const app = express();
 const PORT = 8000;
+
+//Connection
+//mongodb://127.0.0.1:27017 : denotes the server as for now it is in local server project01 : denontes the name of the database
+mongoose.connect("mongodb://127.0.0.1:27017/project01")
+.then(() =>console.log("MongoDB connected"))
+.catch(err => console.log("Not connected" , err)) ;
+
+//Schema
+
+const userSchema = new mongoose.Schema({
+    firstName : {
+        type : String ,
+        required : true ,  //should be filled by the user 
+    },
+    lastName : {
+        type : String ,
+        required : false ,
+    },
+    email : {
+        type : String ,
+        required : true ,
+        unique : true ,  //should be unique in the data base
+    },
+    jobTitle : {
+        type : String ,
+    },
+    gender : {
+        type : String ,
+    }
+},{timestamps : true});
+
+//connecting the model 
+const User = mongoose.model("user" , userSchema);
 
 
 app.use(express.urlencoded({ extended: false })); // Middleware Plugin
@@ -23,86 +59,56 @@ app.get("/", (req, res) => {
     return res.send("This is the homepage");
 });
 
-app.get("/users", (req, res) => {
+app.get("/users", async(req, res) => {
+    const allDBUsers = await User.find({}) ;  //using the query find to get all the users in the DB {}
     const html = `
     <ul>
-     ${users.map((user) => `<li> ${user.first_name} </li>`).join(" ")}
+     ${allDBUsers.map((user) => `<li> ${user.firstName} - ${user.email} </li>`).join(" ")} 
     </ul>
-    `;
+    `; 
     return res.send(html);
 });
 
-app.get("/api/users", (req, res) => {
+app.get("/api/users", async(req, res) => {
+    const allDBUsers = await User.find({}) ;
     //http headers are the key-value pairs that provide additional information about the request or response
-    res.setHeader("X-myName" , "Abhay"); // making a custom header 
-    return res.json(users);
+    // res.setHeader("X-myName" , "Abhay"); // making a custom header 
+    return res.json(allDBUsers);
 });
 
 app
     .route("/api/users/:id") // :id is a dynamic path parameter
-    .get((req, res) => {
-        const id = Number(req.params.id);
-        const user = users.find((user) => user.id === id);
+    .get(async(req, res) => {
+        const user = await User.findById(req.params.id);
         if (!user) {
             return res.status(404).json({ message: "User not found" });
         }
         return res.json(user);
     })
-    .put((req, res) => {
-        const id = Number(req.params.id);
-        const userIndex = users.findIndex((user) => user.id === id);
-
-        if (userIndex === -1) {
-            return res.status(404).json({ message: "User not found" });
-        }
-
-        // Update user data
-        const updatedUser = { ...users[userIndex], ...req.body };
-        users[userIndex] = updatedUser;
-
-        // Write the updated data back to the file
-        fs.writeFile("./MOCK_DATA.json", JSON.stringify(users, null, 2), (err) => {
-            if (err) {
-                return res.status(500).json({ message: "Error updating user" });
-            }
-            return res.json({ message: "User updated successfully", updatedUser });
-        });
+    .patch(async (req, res) => {
+       await User.findByIdAndUpdate(req.params.id , {lastName : "Khan"});
+       return res.json({status : "success"}) ;
     })
-    .delete((req, res) => {
-        const id = Number(req.params.id);
-        const userIndex = users.findIndex((user) => user.id === id);
-
-        if (userIndex === -1) {
-            return res.status(404).json({ message: "User not found" });
-        }
-
-        // Remove the user from the array
-        users.splice(userIndex, 1);
-
-        // Write the updated data back to the file
-        fs.writeFile("./MOCK_DATA.json", JSON.stringify(users, null, 2), (err) => {
-            if (err) {
-                return res.status(500).json({ message: "Error deleting user" });
-            }
-            return res.json({ message: "User deleted successfully" });
-        });
+    .delete(async(req, res) => {
+    await User.findByIdAndDelete(req.params.id);
+    return res.json({status : "success"});
     });
 
 // Post route to add a new user
-app.post("/api/user", (req, res) => {
+app.post("/api/user", async(req, res) => {
     const body = req.body;
-    const newUser = { id: users.length + 1, ...body };
-
-    // Push the new user to the users array
-    users.push(newUser);
-
-    // Write the updated data back to the file
-    fs.writeFile("./MOCK_DATA.json", JSON.stringify(users, null, 2), (err) => {
-        if (err) {
-            return res.status(500).json({ message: "Error saving user" });
-        }
-        return res.json({ status: "Success", id: users.length });
-    });
+    if(!body || !body.first_name || !body.last_name || !body.email || !body.gender || !body.job_title){
+        return res.status(400).json({ message: "All fields are required" });  //bad request 
+    }
+    const result = await User.create({  // to create new user {this time we have removed the fs function to write in the json file }
+        firstName : body.first_name , 
+        lastName : body.last_name ,
+        email : body.email ,
+        gender : body.gender ,
+        jobTitle : body.job_title ,
+    })
+    console.log("Result : ", result);
+    return res.status(201).json({message : "Successfull"});
 });
 
 // Start the server
